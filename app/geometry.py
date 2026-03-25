@@ -1,0 +1,253 @@
+"""Geometry utilities: preset generation, surface math, rebar positioning."""
+
+from __future__ import annotations
+
+import math
+
+from app.models import (
+    ConcreteElement,
+    Direction,
+    Node,
+    RebarGroup,
+    Shape,
+    Surface,
+)
+from app.rebar_data import get_bar_diameter
+
+# ---------------------------------------------------------------------------
+# Vector helpers (avoid numpy dependency)
+# ---------------------------------------------------------------------------
+
+
+def _sub(a: tuple, b: tuple) -> tuple:
+    return (a[0] - b[0], a[1] - b[1], a[2] - b[2])
+
+
+def _add(a: tuple, b: tuple) -> tuple:
+    return (a[0] + b[0], a[1] + b[1], a[2] + b[2])
+
+
+def _scale(v: tuple, s: float) -> tuple:
+    return (v[0] * s, v[1] * s, v[2] * s)
+
+
+def _cross(a: tuple, b: tuple) -> tuple:
+    return (
+        a[1] * b[2] - a[2] * b[1],
+        a[2] * b[0] - a[0] * b[2],
+        a[0] * b[1] - a[1] * b[0],
+    )
+
+
+def _length(v: tuple) -> float:
+    return math.sqrt(v[0] ** 2 + v[1] ** 2 + v[2] ** 2)
+
+
+def _normalize(v: tuple) -> tuple:
+    ln = _length(v)
+    if ln < 1e-12:
+        return (0.0, 0.0, 0.0)
+    return (v[0] / ln, v[1] / ln, v[2] / ln)
+
+
+# ---------------------------------------------------------------------------
+# Preset generators
+# ---------------------------------------------------------------------------
+
+
+def generate_rectangle(
+    width: float, height: float, length: float
+) -> tuple[list[Node], list[Surface]]:
+    """Generate 8 corner nodes and 6 surfaces for a rectangular prism.
+
+    Coordinate convention:
+        X = width, Y = height, Z = length
+        Origin at (0, 0, 0).
+    """
+    w, h, ln = width, height, length
+
+    # 8 corner nodes
+    n = [
+        Node(x=0, y=0, z=0),  # 0 back-bottom-left
+        Node(x=w, y=0, z=0),  # 1 back-bottom-right
+        Node(x=w, y=h, z=0),  # 2 back-top-right
+        Node(x=0, y=h, z=0),  # 3 back-top-left
+        Node(x=0, y=0, z=ln),  # 4 front-bottom-left
+        Node(x=w, y=0, z=ln),  # 5 front-bottom-right
+        Node(x=w, y=h, z=ln),  # 6 front-top-right
+        Node(x=0, y=h, z=ln),  # 7 front-top-left
+    ]
+
+    ids = [nd.id for nd in n]
+
+    # Node ordering gives outward-pointing normals via cross(u, v)
+    surfaces = [
+        Surface(name="bottom", node_ids=[ids[0], ids[1], ids[5], ids[4]]),  # normal (0,-1,0)
+        Surface(name="top", node_ids=[ids[3], ids[7], ids[6], ids[2]]),  # normal (0,+1,0)
+        Surface(name="left", node_ids=[ids[0], ids[4], ids[7], ids[3]]),  # normal (-1,0,0)
+        Surface(name="right", node_ids=[ids[1], ids[2], ids[6], ids[5]]),  # normal (+1,0,0)
+        Surface(name="back", node_ids=[ids[0], ids[3], ids[2], ids[1]]),  # normal (0,0,-1)
+        Surface(name="front", node_ids=[ids[4], ids[5], ids[6], ids[7]]),  # normal (0,0,+1)
+    ]
+
+    # Compute properties for each surface
+    for s in surfaces:
+        compute_surface_properties(n, s)
+
+    return n, surfaces
+
+
+# ---------------------------------------------------------------------------
+# Surface math
+# ---------------------------------------------------------------------------
+
+
+def compute_surface_properties(nodes: list[Node], surface: Surface) -> None:
+    """Compute normal, area, and U/V dimensions for a surface in-place."""
+    resolved = _resolve_nodes(nodes, surface.node_ids)
+    if len(resolved) < 3:
+        return
+
+    p0, p1, p2 = resolved[0], resolved[1], resolved[2]
+    u_vec = _sub(p1, p0)
+    v_vec = _sub(p2, p1) if len(resolved) == 3 else _sub(resolved[-1], p0)
+
+    normal = _normalize(_cross(u_vec, v_vec))
+    surface.normal = normal
+    surface.width_along_u = _length(u_vec)
+    surface.height_along_v = _length(v_vec)
+
+    # Area: for a quad, sum of two triangle areas
+    if len(resolved) == 4:
+        p3 = resolved[3]
+        tri1 = _cross(_sub(p1, p0), _sub(p2, p0))
+        tri2 = _cross(_sub(p2, p0), _sub(p3, p0))
+        surface.area = round((_length(tri1) + _length(tri2)) / 2.0, 3)
+    else:
+        tri = _cross(u_vec, _sub(p2, p0))
+        surface.area = round(_length(tri) / 2.0, 3)
+
+
+def get_surface_local_axes(
+    nodes: list[Node], surface: Surface
+) -> tuple[tuple, tuple, tuple, tuple]:
+    """Return (origin, u_unit, v_unit, normal_unit) for a surface's local frame."""
+    resolved = _resolve_nodes(nodes, surface.node_ids)
+    if len(resolved) < 3:
+        return (0, 0, 0), (1, 0, 0), (0, 1, 0), (0, 0, 1)
+
+    origin = resolved[0]
+    u_vec = _sub(resolved[1], resolved[0])
+    v_vec = _sub(resolved[-1], resolved[0])
+    u_unit = _normalize(u_vec)
+    v_unit = _normalize(v_vec)
+    normal_unit = _normalize(_cross(u_vec, v_vec))
+    return origin, u_unit, v_unit, normal_unit
+
+
+def _resolve_nodes(nodes: list[Node], node_ids: list[str]) -> list[tuple]:
+    """Resolve node IDs to coordinate tuples."""
+    node_map = {n.id: n.coords() for n in nodes}
+    return [node_map[nid] for nid in node_ids if nid in node_map]
+
+
+# ---------------------------------------------------------------------------
+# Rebar position computation
+# ---------------------------------------------------------------------------
+
+
+def compute_rebar_positions(
+    element: ConcreteElement, group: RebarGroup
+) -> tuple[list[dict], int, float]:
+    """Compute bar positions, quantity, and bar length for a rebar group.
+
+    Returns (positions, quantity, bar_length).
+    Each position is {"start": [x,y,z], "end": [x,y,z], "length": float}.
+    """
+    surface = element.get_surface(group.surface_id)
+    if surface is None:
+        return [], 0, 0.0
+
+    nodes = element.nodes
+    origin, u_unit, v_unit, normal = get_surface_local_axes(nodes, surface)
+
+    # Dimensions along U and V
+    u_dim = surface.width_along_u
+    v_dim = surface.height_along_v
+
+    cover = group.cover
+    spacing = group.spacing
+    diameter = get_bar_diameter(group.bar_size)
+
+    # Bars run along the direction axis, distributed along the other axis
+    if group.direction == Direction.U:
+        run_dim = u_dim
+        dist_dim = v_dim
+        run_unit = u_unit
+        dist_unit = v_unit
+    else:
+        run_dim = v_dim
+        dist_dim = u_dim
+        run_unit = v_unit
+        dist_unit = u_unit
+
+    # Bar length depends on shape
+    bar_length = _compute_bar_length(group.shape, run_dim, u_dim, v_dim, cover, diameter)
+    if bar_length <= 0:
+        return [], 0, 0.0
+
+    # Distribution: how many bars fit along the perpendicular axis
+    available_span = dist_dim - 2 * cover
+    if available_span <= 0 or spacing <= 0:
+        return [], 0, 0.0
+
+    quantity = int(math.floor(available_span / spacing)) + 1
+
+    # Offset plane: move inward from surface by cover along the normal
+    # Convention: normal points outward, so we move in the -normal direction
+    offset_origin = _add(origin, _scale(normal, -cover))
+
+    positions = []
+    for i in range(quantity):
+        dist_offset = cover + i * spacing
+        # Start point: offset_origin + dist_offset along dist axis + cover along run axis
+        start = _add(offset_origin, _add(_scale(dist_unit, dist_offset), _scale(run_unit, cover)))
+        end = _add(start, _scale(run_unit, bar_length))
+        positions.append(
+            {
+                "start": list(start),
+                "end": list(end),
+                "length": round(bar_length, 3),
+            }
+        )
+
+    return positions, quantity, round(bar_length, 3)
+
+
+def _compute_bar_length(
+    shape: Shape,
+    run_dim: float,
+    u_dim: float,
+    v_dim: float,
+    cover: float,
+    diameter: float,
+) -> float:
+    """Compute a single bar's length based on shape."""
+    if shape == Shape.STRAIGHT:
+        return max(run_dim - 2 * cover, 0.0)
+
+    if shape == Shape.HOOK:
+        hook_ext = 12 * diameter
+        return max(run_dim - 2 * cover + hook_ext, 0.0)
+
+    if shape == Shape.STIRRUP:
+        hook_ext = 12 * diameter
+        return max(2 * (u_dim - 2 * cover) + 2 * (v_dim - 2 * cover) + 2 * hook_ext, 0.0)
+
+    if shape == Shape.U_BAR:
+        return max(2 * v_dim + u_dim - 6 * cover, 0.0)
+
+    if shape == Shape.L_BAR:
+        return max(u_dim + v_dim - 2 * cover, 0.0)
+
+    return max(run_dim - 2 * cover, 0.0)

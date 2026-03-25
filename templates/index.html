@@ -1,0 +1,67 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>RebarHelper</title>
+  <link rel="stylesheet" href="/static/css/style.css">
+  <script type="importmap">
+  {
+    "imports": {
+      "three": "https://unpkg.com/three@0.164.1/build/three.module.js",
+      "three/addons/": "https://unpkg.com/three@0.164.1/examples/jsm/"
+    }
+  }
+  </script>
+</head>
+<body>
+  <nav>
+    <div class="nav-left"><h1>RebarHelper</h1></div>
+    <div class="nav-right">
+      <button id="btn-save" class="nav-btn save-btn" onclick="saveData()">Save</button>
+    </div>
+  </nav>
+
+  <div class="app-layout">
+    <!-- Left sidebar -->
+    <aside id="sidebar">
+      <div class="sidebar-section">
+        <div class="sidebar-header">
+          <span>Elements</span>
+          <button class="btn-sm btn-primary" onclick="openNewElementForm()">+ New</button>
+        </div>
+        <div id="element-list"></div>
+      </div>
+      <div id="workflow-steps" class="sidebar-section hidden">
+        <button class="step-btn active" data-step="geometry" onclick="showStep('geometry')">1. Geometry</button>
+        <button class="step-btn" data-step="rebar" onclick="showStep('rebar')">2. Rebar</button>
+        <button class="step-btn" data-step="summary" onclick="showStep('summary')">3. Summary</button>
+      </div>
+    </aside>
+
+    <!-- Center content -->
+    <main id="content">
+      <div class="empty-state">Select or create an element to begin.</div>
+    </main>
+
+    <!-- Right: 3D viewport -->
+    <div id="viewer-panel">
+      <div id="three-container"></div>
+    </div>
+  </div>
+
+  <!-- Bottom: cross-section -->
+  <div id="cross-section-panel">
+    <div class="cs-header">
+      <span>Cross-Section at Z =</span>
+      <input type="number" id="cs-z-value" value="60" step="1" onchange="updateCrossSection()">
+      <span>in</span>
+    </div>
+    <div id="cs-container"></div>
+  </div>
+
+  <script type="module" src="/static/js/viewer3d.js"></script>
+  <script type="module" src="/static/js/crosssection.js"></script>
+  <script type="module" src="/static/js/app.js"></script>
+</body>
+</html>
