@@ -26,3 +26,30 @@ def get_unit_weight(bar_size: str) -> float:
 
 def get_bar_diameter(bar_size: str) -> float:
     return BAR_DATA[bar_size]["diameter"]
+
+
+# ---------------------------------------------------------------------------
+# ACI 318 hook extension lengths (inches)
+# 90° standard hook: 12 * db extension beyond the bend
+# 180° standard hook: 4 * db extension beyond the bend
+# 135° seismic hook: 6 * db extension (tail) beyond the bend
+# ---------------------------------------------------------------------------
+
+HOOK_EXTENSIONS: dict[str, dict[str, float]] = {}
+for _size, _props in BAR_DATA.items():
+    _db = _props["diameter"]
+    HOOK_EXTENSIONS[_size] = {
+        "90_standard": round(12 * _db, 3),
+        "180_standard": round(4 * _db, 3),
+        "135_seismic": round(6 * _db, 3),
+    }
+
+
+def get_hook_extension(bar_size: str, hook_type: str) -> float:
+    """Return the additional bar length (inches) for a given hook type.
+
+    Returns 0.0 for hook_type ``"none"`` or unknown bar sizes.
+    """
+    if hook_type == "none":
+        return 0.0
+    return HOOK_EXTENSIONS.get(bar_size, {}).get(hook_type, 0.0)

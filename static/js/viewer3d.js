@@ -185,10 +185,11 @@ class RebarViewer3D {
       if (length < 0.01) return;
 
       const radius = (g.diameter / 2) * 1.5;
-      const geo = new THREE.CylinderGeometry(radius, radius, length, 8);
       const mat = new THREE.MeshPhongMaterial({ color: colorHex });
 
-      const mesh = new THREE.Mesh(geo, mat);
+      // Main bar cylinder
+      const geo = new THREE.CylinderGeometry(radius, radius, length, 8);
+      const mesh = new THREE.Mesh(geo, mat.clone());
       mesh.userData.groupId = g.id;
       mesh.userData.originalColor = colorHex;
 
@@ -196,12 +197,67 @@ class RebarViewer3D {
       mesh.position.copy(mid);
 
       const yAxis = new THREE.Vector3(0, 1, 0);
-      const barDir = dir.normalize();
+      const barDir = dir.clone().normalize();
       const quat = new THREE.Quaternion().setFromUnitVectors(yAxis, barDir);
       mesh.quaternion.copy(quat);
 
       this.rebarGroup.add(mesh);
+
+      // Hook stubs for straight bars
+      if (g.shape === 'straight') {
+        if (g.start_hook && g.start_hook !== 'none') {
+          this._renderHookStub(start, barDir, radius, g.start_hook, colorHex, g.id, true);
+        }
+        if (g.end_hook && g.end_hook !== 'none') {
+          this._renderHookStub(end, barDir, radius, g.end_hook, colorHex, g.id, false);
+        }
+      }
     });
+  }
+
+  _renderHookStub(point, barDir, radius, hookType, colorHex, groupId, isStart) {
+    // Determine hook length and angle
+    const hookLengths = { '90_standard': 8, '180_standard': 6, '135_seismic': 5 };
+    const hookLen = (hookLengths[hookType] || 6) * radius * 2;
+
+    // Find a perpendicular direction for the hook bend
+    const up = new THREE.Vector3(0, 1, 0);
+    let perpDir = new THREE.Vector3().crossVectors(barDir, up);
+    if (perpDir.length() < 0.01) {
+      perpDir = new THREE.Vector3().crossVectors(barDir, new THREE.Vector3(1, 0, 0));
+    }
+    perpDir.normalize();
+
+    // For 135-deg hooks, rotate the perpendicular toward the bar direction
+    if (hookType === '135_seismic') {
+      const axis = new THREE.Vector3().crossVectors(perpDir, barDir).normalize();
+      perpDir.applyAxisAngle(axis, Math.PI * 0.25); // 45 deg back toward bar
+    }
+
+    // Hook direction: perpendicular, pointing "down" (negative normal direction)
+    const hookDir = perpDir.clone();
+    if (hookType === '180_standard') {
+      // 180-deg hook bends back along the bar
+      hookDir.copy(barDir).multiplyScalar(isStart ? 1 : -1);
+    }
+
+    const hookStart = point.clone();
+    const hookEnd = hookStart.clone().add(hookDir.multiplyScalar(hookLen));
+
+    const hookMid = new THREE.Vector3().addVectors(hookStart, hookEnd).multiplyScalar(0.5);
+    const hookGeo = new THREE.CylinderGeometry(radius, radius, hookLen, 8);
+    const hookMat = new THREE.MeshPhongMaterial({ color: colorHex });
+    const hookMesh = new THREE.Mesh(hookGeo, hookMat);
+    hookMesh.userData.groupId = groupId;
+    hookMesh.userData.originalColor = colorHex;
+    hookMesh.position.copy(hookMid);
+
+    const yAxis = new THREE.Vector3(0, 1, 0);
+    const hDir = new THREE.Vector3().subVectors(hookEnd, hookStart).normalize();
+    const hQuat = new THREE.Quaternion().setFromUnitVectors(yAxis, hDir);
+    hookMesh.quaternion.copy(hQuat);
+
+    this.rebarGroup.add(hookMesh);
   }
 
   _fitCamera(bounds) {

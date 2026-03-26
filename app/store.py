@@ -155,7 +155,9 @@ def add_rebar_group(element_id: str, data: RebarGroupCreate) -> RebarGroup | Non
         shape=data.shape,
         cover=data.cover,
         spacing=data.spacing,
-        direction=data.direction,
+        rotated=data.rotated,
+        start_hook=data.start_hook,
+        end_hook=data.end_hook,
     )
     recalculate_rebar_group(elem, group)
     elem.rebar_groups.append(group)

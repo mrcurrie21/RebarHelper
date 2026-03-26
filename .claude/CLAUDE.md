@@ -67,3 +67,9 @@ Pre-commit hooks (`.pre-commit-config.yaml`) enforce ruff lint and formatting au
 
 ## Issue Tracker
 https://github.com/mrcurrie21/RebarHelper/issues
+
+| # | Title | Status |
+|---|-------|--------|
+| [#1](https://github.com/mrcurrie21/RebarHelper/issues/1) | Add Zoom Extents button to 3D viewer | Open |
+| [#2](https://github.com/mrcurrie21/RebarHelper/issues/2) | Add translucent surface labels to 3D viewer with toggle | Open |
+| [#3](https://github.com/mrcurrie21/RebarHelper/issues/3) | Revamp rebar placement: replace U/V with rotate toggle, add ACI hooks | Open |

@@ -3,30 +3,30 @@
 from __future__ import annotations
 
 from enum import Enum
+from typing import Any
 from uuid import uuid4
 
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, Field, model_validator
 
 # --- Enums ---
 
 
 class Shape(str, Enum):
     STRAIGHT = "straight"
-    HOOK = "hook"
     STIRRUP = "stirrup"
-    U_BAR = "u_bar"
-    L_BAR = "l_bar"
+
+
+class HookType(str, Enum):
+    NONE = "none"
+    STD_90 = "90_standard"
+    STD_180 = "180_standard"
+    SEISMIC_135 = "135_seismic"
 
 
 class PresetType(str, Enum):
     RECTANGLE = "rectangle"
     L_SHAPE = "l_shape"
     T_SHAPE = "t_shape"
-
-
-class Direction(str, Enum):
-    U = "u"  # along first edge of the surface
-    V = "v"  # along second edge of the surface
 
 
 # --- Core geometry models ---
@@ -56,6 +56,9 @@ class Surface(BaseModel):
 # --- Rebar group ---
 
 
+_DEPRECATED_SHAPES = {"hook", "u_bar", "l_bar"}
+
+
 class RebarGroup(BaseModel):
     id: str = Field(default_factory=lambda: uuid4().hex[:8])
     element_id: str = ""
@@ -65,13 +68,31 @@ class RebarGroup(BaseModel):
     shape: Shape = Shape.STRAIGHT
     cover: float = 1.5
     spacing: float = 12.0
-    direction: Direction = Direction.U
+    rotated: bool = False
+    start_hook: HookType = HookType.NONE
+    end_hook: HookType = HookType.NONE
     # Computed
     quantity: int = 0
     bar_length: float = 0.0
     unit_weight: float = 0.0
     total_weight: float = 0.0
     positions: list[dict] = []
+
+    @model_validator(mode="before")
+    @classmethod
+    def _migrate_legacy(cls, data: Any) -> Any:
+        if not isinstance(data, dict):
+            return data
+        # Migrate old direction field to rotated boolean
+        if "direction" in data:
+            direction = data.pop("direction")
+            if "rotated" not in data:
+                data["rotated"] = direction == "v"
+        # Migrate deprecated shapes to straight
+        shape = data.get("shape", "")
+        if shape in _DEPRECATED_SHAPES:
+            data["shape"] = "straight"
+        return data
 
 
 # --- Concrete element ---
@@ -137,7 +158,9 @@ class RebarGroupCreate(BaseModel):
     shape: Shape = Shape.STRAIGHT
     cover: float = 1.5
     spacing: float = 12.0
-    direction: Direction = Direction.U
+    rotated: bool = False
+    start_hook: HookType = HookType.NONE
+    end_hook: HookType = HookType.NONE
 
 
 class RebarGroupUpdate(BaseModel):
@@ -147,4 +170,6 @@ class RebarGroupUpdate(BaseModel):
     shape: Shape | None = None
     cover: float | None = None
     spacing: float | None = None
-    direction: Direction | None = None
+    rotated: bool | None = None
+    start_hook: HookType | None = None
+    end_hook: HookType | None = None

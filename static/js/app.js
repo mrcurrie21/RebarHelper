@@ -244,7 +244,7 @@ async function renderGeometryStep() {
       <h3>Surfaces (${elem.surfaces.length})</h3>
       <table class="surface-table">
         <thead>
-          <tr><th>Name</th><th>U Dim</th><th>V Dim</th><th>Normal</th></tr>
+          <tr><th>Name</th><th>Dim 1</th><th>Dim 2</th><th>Normal</th></tr>
         </thead>
         <tbody>${surfaceRows}</tbody>
       </table>
@@ -278,15 +278,21 @@ async function renderRebarStep() {
   const elem = await api(`/elements/${currentElementId}`);
   const content = $('#content');
 
-  const surfaceOpts = elem.surfaces.map(s =>
-    `<option value="${s.id}">${esc(s.name)} (U=${s.width_along_u.toFixed(0)}" V=${s.height_along_v.toFixed(0)}")</option>`
-  ).join('');
+  const surfaceOpts = elem.surfaces.map(s => {
+    const d1 = s.width_along_u.toFixed(0);
+    const d2 = s.height_along_v.toFixed(0);
+    return `<option value="${s.id}">${esc(s.name)} (${d1}" x ${d2}")</option>`;
+  }).join('');
 
   const sizeOpts = barSizes.map(s => `<option value="${s}">${s}</option>`).join('');
 
   const rows = elem.rebar_groups.map(g => {
     const surface = elem.surfaces.find(s => s.id === g.surface_id);
     const surfName = surface ? surface.name : '?';
+    const hookLabels = { none: '-', '90_standard': '90\u00b0', '180_standard': '180\u00b0', '135_seismic': '135\u00b0' };
+    const hooksStr = g.shape === 'straight'
+      ? `${hookLabels[g.start_hook] || '-'} / ${hookLabels[g.end_hook] || '-'}`
+      : '-';
     return `
     <tr data-group-id="${g.id}">
       <td>${esc(g.label)}</td>
@@ -295,7 +301,8 @@ async function renderRebarStep() {
       <td>${g.shape}</td>
       <td>${g.spacing}"</td>
       <td>${g.cover}"</td>
-      <td>${g.direction}</td>
+      <td>${g.rotated ? '\u2713' : '-'}</td>
+      <td>${hooksStr}</td>
       <td class="computed">${g.quantity}</td>
       <td class="computed">${g.bar_length.toFixed(1)}"</td>
       <td class="computed">${g.unit_weight.toFixed(3)}</td>
@@ -336,12 +343,9 @@ async function renderRebarStep() {
       <div class="form-row">
         <div class="form-group">
           <label>Shape</label>
-          <select id="rg-shape">
+          <select id="rg-shape" onchange="onShapeChange()">
             <option value="straight">Straight</option>
-            <option value="hook">Hook</option>
             <option value="stirrup">Stirrup</option>
-            <option value="u_bar">U-Bar</option>
-            <option value="l_bar">L-Bar</option>
           </select>
         </div>
         <div class="form-group">
@@ -352,11 +356,28 @@ async function renderRebarStep() {
           <label>Cover (in)</label>
           <input type="number" id="rg-cover" value="1.5" step="0.125" min="0">
         </div>
+        <div class="form-group" style="align-self:end">
+          <label><input type="checkbox" id="rg-rotated"> Rotate 90&deg;</label>
+          <small style="display:block;color:#888;font-size:0.75em">Bars run along long dim by default</small>
+        </div>
+      </div>
+      <div id="hook-fields" class="form-row">
         <div class="form-group">
-          <label>Direction</label>
-          <select id="rg-direction">
-            <option value="u">U (1st edge)</option>
-            <option value="v">V (2nd edge)</option>
+          <label>Start Hook</label>
+          <select id="rg-start-hook">
+            <option value="none">None</option>
+            <option value="90_standard">90&deg; Standard</option>
+            <option value="180_standard">180&deg; Standard</option>
+            <option value="135_seismic">135&deg; Seismic</option>
+          </select>
+        </div>
+        <div class="form-group">
+          <label>End Hook</label>
+          <select id="rg-end-hook">
+            <option value="none">None</option>
+            <option value="90_standard">90&deg; Standard</option>
+            <option value="180_standard">180&deg; Standard</option>
+            <option value="135_seismic">135&deg; Seismic</option>
           </select>
         </div>
       </div>
@@ -371,17 +392,17 @@ async function renderRebarStep() {
         <thead>
           <tr>
             <th>Label</th><th>Surface</th><th>Size</th><th>Shape</th>
-            <th>Spacing</th><th>Cover</th><th>Dir</th>
+            <th>Spacing</th><th>Cover</th><th>Rot.</th><th>Hooks</th>
             <th>Qty</th><th>Length</th><th>Wt/ft</th><th>Total Wt</th><th>Actions</th>
           </tr>
         </thead>
         <tbody>
-          ${rows || '<tr><td colspan="12" class="empty-state">No rebar groups yet.</td></tr>'}
+          ${rows || '<tr><td colspan="13" class="empty-state">No rebar groups yet.</td></tr>'}
         </tbody>
         ${elem.rebar_groups.length ? `
         <tfoot>
           <tr class="totals-row">
-            <td colspan="7"><strong>Totals</strong></td>
+            <td colspan="8"><strong>Totals</strong></td>
             <td><strong>${totalBars}</strong></td>
             <td colspan="2"></td>
             <td><strong>${totalWeight.toFixed(2)} lb</strong></td>
@@ -404,7 +425,18 @@ function toggleAddRebarForm() {
     $('#rg-shape').value = 'straight';
     $('#rg-spacing').value = '12';
     $('#rg-cover').value = '1.5';
-    $('#rg-direction').value = 'u';
+    $('#rg-rotated').checked = false;
+    $('#rg-start-hook').value = 'none';
+    $('#rg-end-hook').value = 'none';
+    onShapeChange();
+  }
+}
+
+function onShapeChange() {
+  const shape = $('#rg-shape').value;
+  const hookFields = $('#hook-fields');
+  if (hookFields) {
+    hookFields.style.display = shape === 'straight' ? '' : 'none';
   }
 }
 
@@ -427,19 +459,25 @@ async function editRebarGroup(groupId) {
   $('#rg-shape').value = g.shape;
   $('#rg-spacing').value = g.spacing;
   $('#rg-cover').value = g.cover;
-  $('#rg-direction').value = g.direction;
+  $('#rg-rotated').checked = g.rotated;
+  $('#rg-start-hook').value = g.start_hook;
+  $('#rg-end-hook').value = g.end_hook;
+  onShapeChange();
 }
 
 async function submitRebarGroup() {
   const groupId = $('#edit-group-id').value;
+  const shape = $('#rg-shape').value;
   const body = {
     surface_id: $('#rg-surface').value,
     label: $('#rg-label').value,
     bar_size: $('#rg-size').value,
-    shape: $('#rg-shape').value,
+    shape,
     spacing: parseFloat($('#rg-spacing').value),
     cover: parseFloat($('#rg-cover').value),
-    direction: $('#rg-direction').value,
+    rotated: $('#rg-rotated').checked,
+    start_hook: shape === 'straight' ? $('#rg-start-hook').value : 'none',
+    end_hook: shape === 'straight' ? $('#rg-end-hook').value : 'none',
   };
 
   if (groupId) {
@@ -543,6 +581,7 @@ window.deleteElement = deleteElement;
 window.showStep = showStep;
 window.updateGeometry = updateGeometry;
 window.toggleAddRebarForm = toggleAddRebarForm;
+window.onShapeChange = onShapeChange;
 window.cancelRebarForm = cancelRebarForm;
 window.editRebarGroup = editRebarGroup;
 window.submitRebarGroup = submitRebarGroup;
