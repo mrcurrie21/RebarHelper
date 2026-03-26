@@ -162,6 +162,8 @@ def compute_rebar_positions(
 
     Returns (positions, quantity, bar_length).
     Each position is {"start": [x,y,z], "end": [x,y,z], "length": float}.
+    Position start/end represent the visual (straight) extent of the bar.
+    bar_length includes hook extensions for weight calculation.
     """
     surface = element.get_surface(group.surface_id)
     if surface is None:
@@ -195,7 +197,7 @@ def compute_rebar_positions(
         run_dim, dist_dim = long_dim, short_dim
         run_unit, dist_unit = long_unit, short_unit
 
-    # Bar length depends on shape
+    # Bar length depends on shape (total material length including hooks)
     bar_length = _compute_bar_length(
         group.shape,
         run_dim,
@@ -209,6 +211,9 @@ def compute_rebar_positions(
     )
     if bar_length <= 0:
         return [], 0, 0.0
+
+    # Visual extent: the straight portion that fits within the element
+    visual_length = _compute_visual_length(group.shape, run_dim, u_dim, v_dim, cover)
 
     # Distribution: how many bars fit along the perpendicular axis
     available_span = dist_dim - 2 * cover
@@ -226,7 +231,7 @@ def compute_rebar_positions(
         dist_offset = cover + i * spacing
         # Start point: offset_origin + dist_offset along dist axis + cover along run axis
         start = _add(offset_origin, _add(_scale(dist_unit, dist_offset), _scale(run_unit, cover)))
-        end = _add(start, _scale(run_unit, bar_length))
+        end = _add(start, _scale(run_unit, visual_length))
         positions.append(
             {
                 "start": list(start),
@@ -236,6 +241,27 @@ def compute_rebar_positions(
         )
 
     return positions, quantity, round(bar_length, 3)
+
+
+def _compute_visual_length(
+    shape: Shape,
+    run_dim: float,
+    u_dim: float,
+    v_dim: float,
+    cover: float,
+) -> float:
+    """Compute the visual (straight) extent of a bar for 3D positioning.
+
+    For straight bars this is the run dimension minus cover on each end.
+    For stirrups this is the same (they run along one axis visually).
+    """
+    if shape == Shape.STIRRUP:
+        # Stirrups are placed along the run axis; their visual extent
+        # is just the spacing between them (essentially zero-length lines),
+        # but we represent them as spanning the run dimension for positioning.
+        return max(run_dim - 2 * cover, 0.0)
+    # Straight bars: straight portion only (no hook extensions)
+    return max(run_dim - 2 * cover, 0.0)
 
 
 def _compute_bar_length(

@@ -22,7 +22,7 @@ from app.models import (
     RebarGroupUpdate,
     SurfaceCreate,
 )
-from app.rebar_data import BAR_DATA, BAR_SIZES, HOOK_EXTENSIONS
+from app.rebar_data import BAR_DATA, BAR_SIZES, HOOK_EXTENSIONS, get_hook_extension
 
 BASE_DIR = Path(__file__).resolve().parent.parent
 
@@ -247,6 +247,8 @@ async def get_3d_data(element_id: str):
                 "color": colors[i % len(colors)],
                 "start_hook": g.start_hook.value,
                 "end_hook": g.end_hook.value,
+                "start_hook_ext": get_hook_extension(g.bar_size, g.start_hook.value),
+                "end_hook_ext": get_hook_extension(g.bar_size, g.end_hook.value),
                 "bars": g.positions,
             }
         )

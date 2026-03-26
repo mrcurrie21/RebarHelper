@@ -205,44 +205,48 @@ class RebarViewer3D {
 
       // Hook stubs for straight bars
       if (g.shape === 'straight') {
-        if (g.start_hook && g.start_hook !== 'none') {
-          this._renderHookStub(start, barDir, radius, g.start_hook, colorHex, g.id, true);
+        if (g.start_hook && g.start_hook !== 'none' && g.start_hook_ext > 0) {
+          this._renderHookStub(start, barDir, radius, g.start_hook, g.start_hook_ext, colorHex, g.id, true);
         }
-        if (g.end_hook && g.end_hook !== 'none') {
-          this._renderHookStub(end, barDir, radius, g.end_hook, colorHex, g.id, false);
+        if (g.end_hook && g.end_hook !== 'none' && g.end_hook_ext > 0) {
+          this._renderHookStub(end, barDir, radius, g.end_hook, g.end_hook_ext, colorHex, g.id, false);
         }
       }
     });
   }
 
-  _renderHookStub(point, barDir, radius, hookType, colorHex, groupId, isStart) {
-    // Determine hook length and angle
-    const hookLengths = { '90_standard': 8, '180_standard': 6, '135_seismic': 5 };
-    const hookLen = (hookLengths[hookType] || 6) * radius * 2;
+  _renderHookStub(point, barDir, radius, hookType, hookExtInches, colorHex, groupId, isStart) {
+    // Use the actual ACI extension length from the API
+    const hookLen = hookExtInches;
+    if (hookLen <= 0) return;
 
     // Find a perpendicular direction for the hook bend
+    // Prefer downward (negative Y) for hooks — typical structural convention
     const up = new THREE.Vector3(0, 1, 0);
     let perpDir = new THREE.Vector3().crossVectors(barDir, up);
     if (perpDir.length() < 0.01) {
       perpDir = new THREE.Vector3().crossVectors(barDir, new THREE.Vector3(1, 0, 0));
     }
     perpDir.normalize();
+    // Point hook downward (toward negative Y if possible)
+    if (perpDir.y > 0) perpDir.negate();
 
-    // For 135-deg hooks, rotate the perpendicular toward the bar direction
-    if (hookType === '135_seismic') {
-      const axis = new THREE.Vector3().crossVectors(perpDir, barDir).normalize();
-      perpDir.applyAxisAngle(axis, Math.PI * 0.25); // 45 deg back toward bar
-    }
-
-    // Hook direction: perpendicular, pointing "down" (negative normal direction)
-    const hookDir = perpDir.clone();
+    let hookDir;
     if (hookType === '180_standard') {
-      // 180-deg hook bends back along the bar
-      hookDir.copy(barDir).multiplyScalar(isStart ? 1 : -1);
+      // 180-deg hook bends back along the bar direction
+      hookDir = barDir.clone().multiplyScalar(isStart ? 1 : -1);
+    } else if (hookType === '135_seismic') {
+      // 135-deg hook: angled 45 degrees back toward the bar
+      hookDir = perpDir.clone();
+      const backDir = barDir.clone().multiplyScalar(isStart ? 1 : -1);
+      hookDir.add(backDir).normalize();
+    } else {
+      // 90-deg hook: perpendicular to the bar
+      hookDir = perpDir.clone();
     }
 
     const hookStart = point.clone();
-    const hookEnd = hookStart.clone().add(hookDir.multiplyScalar(hookLen));
+    const hookEnd = hookStart.clone().add(hookDir.clone().multiplyScalar(hookLen));
 
     const hookMid = new THREE.Vector3().addVectors(hookStart, hookEnd).multiplyScalar(0.5);
     const hookGeo = new THREE.CylinderGeometry(radius, radius, hookLen, 8);
