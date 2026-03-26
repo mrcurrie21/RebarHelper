@@ -6,3 +6,6 @@ dist/
 venv/
 .env
 data/rebar_data.json
+node_modules/
+test-results/
+playwright-report/
