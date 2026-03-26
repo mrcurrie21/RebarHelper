@@ -370,7 +370,8 @@ def test_summary_with_data(client):
 # --- Save / Load ---
 
 
-def test_save_and_load(client, tmp_path):
+def test_save_and_load(client, tmp_path, monkeypatch):
+    monkeypatch.setattr("app.store.SAVE_FILE", tmp_path / "test_data.json")
     _create_preset_element(client)
     resp = client.post("/api/save")
     assert resp.status_code == 200
