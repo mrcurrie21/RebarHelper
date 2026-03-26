@@ -252,15 +252,9 @@ def _compute_visual_length(
 ) -> float:
     """Compute the visual (straight) extent of a bar for 3D positioning.
 
-    For straight bars this is the run dimension minus cover on each end.
-    For stirrups this is the same (they run along one axis visually).
+    For all shapes this is the run dimension minus cover on each end.
+    Hook extensions are excluded — they are accounted for in bar_length only.
     """
-    if shape == Shape.STIRRUP:
-        # Stirrups are placed along the run axis; their visual extent
-        # is just the spacing between them (essentially zero-length lines),
-        # but we represent them as spanning the run dimension for positioning.
-        return max(run_dim - 2 * cover, 0.0)
-    # Straight bars: straight portion only (no hook extensions)
     return max(run_dim - 2 * cover, 0.0)
 
 
