@@ -44,12 +44,23 @@ test.describe('Data Entry Workflow', () => {
   });
 
   test('add a rebar group and verify calculated values', async ({ page }) => {
+    // Create element via API for reliability
+    const resp = await page.request.post('/api/elements/from-preset', {
+      data: {
+        name: 'Rebar Test',
+        preset_type: 'rectangle',
+        params: { width: 24, height: 36, length: 120 },
+      },
+    });
+    const elem = await resp.json();
+
     await page.goto('/');
 
-    // Create element
-    await page.click('text=+ New');
-    await page.fill('#new-name', 'Test Beam');
-    await page.click('text=Create');
+    // Select the element
+    await page.click('.elem-item');
+
+    // Wait for workflow steps to be visible
+    await expect(page.locator('#workflow-steps')).toBeVisible();
 
     // Navigate to rebar step
     await page.click('button[data-step="rebar"]');
@@ -57,7 +68,7 @@ test.describe('Data Entry Workflow', () => {
     // Click "Add Group" button
     await page.click('text=+ Add Group');
 
-    // Wait for the rebar form/row to appear and fill it
+    // Wait for the rebar form/row to appear
     await page.waitForSelector('.rebar-table');
 
     // Check that a row was added to the rebar table
