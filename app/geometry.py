@@ -6,13 +6,12 @@ import math
 
 from app.models import (
     ConcreteElement,
-    Direction,
     Node,
     RebarGroup,
     Shape,
     Surface,
 )
-from app.rebar_data import get_bar_diameter
+from app.rebar_data import get_bar_diameter, get_hook_extension
 
 # ---------------------------------------------------------------------------
 # Vector helpers (avoid numpy dependency)
@@ -163,6 +162,8 @@ def compute_rebar_positions(
 
     Returns (positions, quantity, bar_length).
     Each position is {"start": [x,y,z], "end": [x,y,z], "length": float}.
+    Position start/end represent the visual (straight) extent of the bar.
+    bar_length includes hook extensions for weight calculation.
     """
     surface = element.get_surface(group.surface_id)
     if surface is None:
@@ -179,22 +180,40 @@ def compute_rebar_positions(
     spacing = group.spacing
     diameter = get_bar_diameter(group.bar_size)
 
-    # Bars run along the direction axis, distributed along the other axis
-    if group.direction == Direction.U:
-        run_dim = u_dim
-        dist_dim = v_dim
-        run_unit = u_unit
-        dist_unit = v_unit
+    # Determine long and short axes
+    if u_dim >= v_dim:
+        long_dim, short_dim = u_dim, v_dim
+        long_unit, short_unit = u_unit, v_unit
     else:
-        run_dim = v_dim
-        dist_dim = u_dim
-        run_unit = v_unit
-        dist_unit = u_unit
+        long_dim, short_dim = v_dim, u_dim
+        long_unit, short_unit = v_unit, u_unit
 
-    # Bar length depends on shape
-    bar_length = _compute_bar_length(group.shape, run_dim, u_dim, v_dim, cover, diameter)
+    # Default: bars run along long axis, distributed along short axis
+    # Rotated: bars run along short axis, distributed along long axis
+    if group.rotated:
+        run_dim, dist_dim = short_dim, long_dim
+        run_unit, dist_unit = short_unit, long_unit
+    else:
+        run_dim, dist_dim = long_dim, short_dim
+        run_unit, dist_unit = long_unit, short_unit
+
+    # Bar length depends on shape (total material length including hooks)
+    bar_length = _compute_bar_length(
+        group.shape,
+        run_dim,
+        u_dim,
+        v_dim,
+        cover,
+        diameter,
+        group.bar_size,
+        group.start_hook.value,
+        group.end_hook.value,
+    )
     if bar_length <= 0:
         return [], 0, 0.0
+
+    # Visual extent: the straight portion that fits within the element
+    visual_length = _compute_visual_length(group.shape, run_dim, u_dim, v_dim, cover)
 
     # Distribution: how many bars fit along the perpendicular axis
     available_span = dist_dim - 2 * cover
@@ -212,7 +231,7 @@ def compute_rebar_positions(
         dist_offset = cover + i * spacing
         # Start point: offset_origin + dist_offset along dist axis + cover along run axis
         start = _add(offset_origin, _add(_scale(dist_unit, dist_offset), _scale(run_unit, cover)))
-        end = _add(start, _scale(run_unit, bar_length))
+        end = _add(start, _scale(run_unit, visual_length))
         positions.append(
             {
                 "start": list(start),
@@ -224,6 +243,21 @@ def compute_rebar_positions(
     return positions, quantity, round(bar_length, 3)
 
 
+def _compute_visual_length(
+    shape: Shape,
+    run_dim: float,
+    u_dim: float,
+    v_dim: float,
+    cover: float,
+) -> float:
+    """Compute the visual (straight) extent of a bar for 3D positioning.
+
+    For all shapes this is the run dimension minus cover on each end.
+    Hook extensions are excluded — they are accounted for in bar_length only.
+    """
+    return max(run_dim - 2 * cover, 0.0)
+
+
 def _compute_bar_length(
     shape: Shape,
     run_dim: float,
@@ -231,23 +265,24 @@ def _compute_bar_length(
     v_dim: float,
     cover: float,
     diameter: float,
+    bar_size: str = "#5",
+    start_hook: str = "none",
+    end_hook: str = "none",
 ) -> float:
     """Compute a single bar's length based on shape."""
     if shape == Shape.STRAIGHT:
-        return max(run_dim - 2 * cover, 0.0)
-
-    if shape == Shape.HOOK:
-        hook_ext = 12 * diameter
-        return max(run_dim - 2 * cover + hook_ext, 0.0)
+        straight_len = max(run_dim - 2 * cover, 0.0)
+        hook_add = get_hook_extension(bar_size, start_hook) + get_hook_extension(
+            bar_size, end_hook
+        )
+        return straight_len + hook_add
 
     if shape == Shape.STIRRUP:
-        hook_ext = 12 * diameter
-        return max(2 * (u_dim - 2 * cover) + 2 * (v_dim - 2 * cover) + 2 * hook_ext, 0.0)
-
-    if shape == Shape.U_BAR:
-        return max(2 * v_dim + u_dim - 6 * cover, 0.0)
-
-    if shape == Shape.L_BAR:
-        return max(u_dim + v_dim - 2 * cover, 0.0)
+        # Stirrups always have 135-deg seismic hooks at closure
+        hook_ext = get_hook_extension(bar_size, "135_seismic")
+        return max(
+            2 * (u_dim - 2 * cover) + 2 * (v_dim - 2 * cover) + 2 * hook_ext,
+            0.0,
+        )
 
     return max(run_dim - 2 * cover, 0.0)
