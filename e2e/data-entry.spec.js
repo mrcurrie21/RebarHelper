@@ -39,9 +39,10 @@ test.describe('Data Entry Workflow', () => {
     await page.fill('#pre-length', '120');
 
     // Create the element and wait for the API response
+    const createBtn = page.locator('.form-card .btn-primary');
     const [response] = await Promise.all([
       page.waitForResponse((resp) => resp.url().includes('/api/elements/from-preset')),
-      page.click('.btn-primary'),
+      createBtn.click(),
     ]);
     expect(response.status()).toBe(201);
 
