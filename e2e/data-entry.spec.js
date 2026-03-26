@@ -29,17 +29,24 @@ test.describe('Data Entry Workflow', () => {
     // Click "+ New" button
     await page.click('text=+ New');
 
+    // Wait for the form to appear
+    await expect(page.locator('#new-name')).toBeVisible();
+
     // Fill in element form
     await page.fill('#new-name', 'Test Beam');
     await page.fill('#pre-width', '24');
     await page.fill('#pre-height', '36');
     await page.fill('#pre-length', '120');
 
-    // Create the element
-    await page.click('text=Create');
+    // Create the element and wait for the API response
+    const [response] = await Promise.all([
+      page.waitForResponse((resp) => resp.url().includes('/api/elements/from-preset')),
+      page.click('.btn-primary'),
+    ]);
+    expect(response.status()).toBe(201);
 
-    // Verify element appears in sidebar
-    await expect(page.locator('.elem-item')).toHaveCount(1);
+    // Wait for sidebar to update
+    await expect(page.locator('.elem-item')).toHaveCount(1, { timeout: 10000 });
     await expect(page.locator('.elem-name')).toContainText('Test Beam');
   });
 
