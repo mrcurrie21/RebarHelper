@@ -284,7 +284,7 @@ class RebarViewer3D {
     // Account for camera FOV and aspect ratio so model fits at any window size
     const fov = this.camera.fov * (Math.PI / 180);
     const aspect = this.camera.aspect || 1;
-    const effectiveFov = aspect < 1 ? fov * aspect : fov;
+    const effectiveFov = aspect < 1 ? 2 * Math.atan(aspect * Math.tan(fov / 2)) : fov;
     const dist = (maxDim / 2) / Math.tan(effectiveFov / 2) * 1.3;
 
     this.camera.position.set(
