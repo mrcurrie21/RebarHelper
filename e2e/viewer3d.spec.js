@@ -138,6 +138,51 @@ test.describe('3D Viewer', () => {
     expect(jsErrors).toHaveLength(0);
   });
 
+  test('Surface labels are rendered for each surface', async ({ page }) => {
+    await page.goto('/');
+    await page.click('.elem-item');
+    await page.waitForTimeout(1000);
+
+    const labelCount = await page.evaluate(() => {
+      const viewer = window.rebarViewer3D;
+      if (!viewer || !viewer.labelGroup) return -1;
+      return viewer.labelGroup.children.length;
+    });
+
+    // A rectangle element has 6 surfaces, so 6 labels
+    expect(labelCount).toBe(6);
+  });
+
+  test('Toggle Labels button is visible and toggles label visibility', async ({ page }) => {
+    await page.goto('/');
+    await page.click('.elem-item');
+    await page.waitForTimeout(1000);
+
+    const btn = page.locator('#btn-toggle-labels');
+    await expect(btn).toBeVisible();
+    await expect(btn).toHaveAttribute('title', 'Toggle Surface Labels');
+
+    // Labels should be visible by default
+    const visibleBefore = await page.evaluate(() => {
+      return window.rebarViewer3D.labelGroup.visible;
+    });
+    expect(visibleBefore).toBe(true);
+
+    // Click toggle — labels should hide
+    await btn.click();
+    const visibleAfter = await page.evaluate(() => {
+      return window.rebarViewer3D.labelGroup.visible;
+    });
+    expect(visibleAfter).toBe(false);
+
+    // Click again — labels should show
+    await btn.click();
+    const visibleAgain = await page.evaluate(() => {
+      return window.rebarViewer3D.labelGroup.visible;
+    });
+    expect(visibleAgain).toBe(true);
+  });
+
   test('3D viewer renders without errors', async ({ page }) => {
     const errors = [];
     page.on('pageerror', (error) => errors.push(error.message));
