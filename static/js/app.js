@@ -51,6 +51,13 @@ async function init() {
     if (viewer3d) viewer3d.zoomExtents();
   });
 
+  $('#btn-toggle-labels').addEventListener('click', () => {
+    if (viewer3d) {
+      viewer3d.toggleLabels();
+      $('#btn-toggle-labels').classList.toggle('active');
+    }
+  });
+
   viewer3d.onGroupSelected = (groupId) => {
     // Highlight table row
     document.querySelectorAll('.rebar-table tr').forEach(r => r.classList.remove('highlight'));
