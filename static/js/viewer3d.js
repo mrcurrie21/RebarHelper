@@ -268,6 +268,7 @@ class RebarViewer3D {
   }
 
   zoomExtents() {
+    this._resize();
     this._fitCamera(this._lastBounds);
   }
 
@@ -279,7 +280,12 @@ class RebarViewer3D {
     const center = new THREE.Vector3().addVectors(min, max).multiplyScalar(0.5);
     const size = new THREE.Vector3().subVectors(max, min);
     const maxDim = Math.max(size.x, size.y, size.z);
-    const dist = maxDim * 1.8;
+
+    // Account for camera FOV and aspect ratio so model fits at any window size
+    const fov = this.camera.fov * (Math.PI / 180);
+    const aspect = this.camera.aspect || 1;
+    const effectiveFov = aspect < 1 ? fov * aspect : fov;
+    const dist = (maxDim / 2) / Math.tan(effectiveFov / 2) * 1.3;
 
     this.camera.position.set(
       center.x + dist * 0.6,
