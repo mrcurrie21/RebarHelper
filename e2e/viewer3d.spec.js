@@ -186,7 +186,7 @@ test.describe('3D Viewer', () => {
   test('World-space axis arrows with X/Y/Z labels at origin', async ({ page }) => {
     await page.goto('/');
     await page.click('.elem-item');
-    await page.waitForTimeout(1000);
+    await page.waitForFunction(() => window.rebarViewer3D?.axisGroup?.children?.length > 0);
 
     // Verify axis group exists with expected children in the main scene
     const axisInfo = await page.evaluate(() => {

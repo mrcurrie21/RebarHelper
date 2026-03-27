@@ -49,7 +49,9 @@ class RebarViewer3D {
     // World-space axis arrows at origin
     this.axisGroup = new THREE.Group();
     this.scene.add(this.axisGroup);
-    this._buildAxisArrows(30);
+    this._buildAxisArrows();
+    this._axisBaseLength = 30;
+    this.axisGroup.scale.setScalar(1);
 
     // Selection state
     this.selectedGroupId = null;
@@ -65,22 +67,13 @@ class RebarViewer3D {
     this._animate();
   }
 
-  _buildAxisArrows(axisLength) {
-    // Clear previous arrows
-    while (this.axisGroup.children.length > 0) {
-      const c = this.axisGroup.children[0];
-      if (c.geometry) c.geometry.dispose();
-      if (c.material) {
-        if (c.material.map) c.material.map.dispose();
-        c.material.dispose();
-      }
-      this.axisGroup.remove(c);
-    }
-
-    const axisRadius = axisLength * 0.02;
-    const coneHeight = axisLength * 0.08;
-    const coneRadius = axisLength * 0.04;
-    const labelScale = axisLength * 0.25;
+  _buildAxisArrows() {
+    // Build once at unit length; use axisGroup.scale to resize
+    const axisLength = 1;
+    const axisRadius = 0.02;
+    const coneHeight = 0.08;
+    const coneRadius = 0.04;
+    const labelScale = 0.25;
 
     const axes = [
       { dir: [1, 0, 0], color: 0xff4444, label: 'X' },
@@ -392,7 +385,7 @@ class RebarViewer3D {
     // Scale axis arrows to ~25% of the element's largest dimension
     const bSize = new THREE.Vector3().subVectors(max, min);
     const axisLen = Math.max(bSize.x, bSize.y, bSize.z) * 0.25;
-    if (axisLen > 0) this._buildAxisArrows(axisLen);
+    if (axisLen > 0) this.axisGroup.scale.setScalar(axisLen);
     const center = new THREE.Vector3().addVectors(min, max).multiplyScalar(0.5);
     const size = new THREE.Vector3().subVectors(max, min);
     const maxDim = Math.max(size.x, size.y, size.z);
