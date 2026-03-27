@@ -46,6 +46,10 @@ async function init() {
   viewer3d = new RebarViewer3D($('#three-container'));
   crossSection = new CrossSectionView($('#cs-container'));
 
+  $('#btn-zoom-extents').addEventListener('click', () => {
+    if (viewer3d) viewer3d.zoomExtents();
+  });
+
   viewer3d.onGroupSelected = (groupId) => {
     // Highlight table row
     document.querySelectorAll('.rebar-table tr').forEach(r => r.classList.remove('highlight'));

@@ -83,6 +83,27 @@ test.describe('3D Viewer', () => {
     }
   });
 
+  test('Zoom Extents button is visible and clickable', async ({ page }) => {
+    await page.goto('/');
+    const btn = page.locator('#btn-zoom-extents');
+    await expect(btn).toBeVisible();
+    await expect(btn).toHaveAttribute('title', 'Zoom Extents');
+
+    // Select element so scene has content, then click zoom extents
+    await page.click('.elem-item');
+    await page.waitForTimeout(500);
+    await btn.click();
+
+    // Verify no errors after clicking
+    const errors = [];
+    page.on('pageerror', (error) => errors.push(error.message));
+    await page.waitForTimeout(500);
+    const jsErrors = errors.filter(
+      (e) => !e.includes('WebGL') && !e.includes('GPU')
+    );
+    expect(jsErrors).toHaveLength(0);
+  });
+
   test('3D viewer renders without errors', async ({ page }) => {
     const errors = [];
     page.on('pageerror', (error) => errors.push(error.message));

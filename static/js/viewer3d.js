@@ -52,6 +52,9 @@ class RebarViewer3D {
     this.selectedGroupId = null;
     this.onGroupSelected = null;
 
+    // Store last bounds for zoom extents
+    this._lastBounds = null;
+
     // Events
     this.renderer.domElement.addEventListener('click', (e) => this._onClick(e));
     window.addEventListener('resize', () => this._resize());
@@ -264,8 +267,13 @@ class RebarViewer3D {
     this.rebarGroup.add(hookMesh);
   }
 
+  zoomExtents() {
+    this._fitCamera(this._lastBounds);
+  }
+
   _fitCamera(bounds) {
     if (!bounds) return;
+    this._lastBounds = bounds;
     const min = new THREE.Vector3(...bounds.min);
     const max = new THREE.Vector3(...bounds.max);
     const center = new THREE.Vector3().addVectors(min, max).multiplyScalar(0.5);

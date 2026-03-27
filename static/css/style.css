@@ -98,6 +98,13 @@ nav h1 { font-size: 1rem; color: var(--primary); }
   position: relative;
 }
 #three-container { width: 100%; height: 100%; }
+.viewer-toolbar-btn {
+  position: absolute; top: 8px; right: 8px; z-index: 10;
+  background: rgba(255, 255, 255, 0.15); color: #ccc;
+  border: 1px solid rgba(255, 255, 255, 0.25); border-radius: var(--radius);
+  padding: 4px 8px; cursor: pointer; font-size: 14px; line-height: 1;
+}
+.viewer-toolbar-btn:hover { background: rgba(255, 255, 255, 0.3); color: #fff; }
 
 /* Cross-section panel */
 #cross-section-panel {
