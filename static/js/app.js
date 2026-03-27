@@ -44,6 +44,7 @@ async function init() {
   barSizes = sizeData.sizes;
 
   viewer3d = new RebarViewer3D($('#three-container'));
+  window.rebarViewer3D = viewer3d;  // expose for E2E tests
   crossSection = new CrossSectionView($('#cs-container'));
 
   $('#btn-zoom-extents').addEventListener('click', () => {

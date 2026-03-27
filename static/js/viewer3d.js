@@ -287,7 +287,12 @@ class RebarViewer3D {
       center.z + dist * 0.8
     );
     this.controls.target.copy(center);
+
+    // Snap immediately — damping would otherwise interpolate over many frames
+    const wasDamping = this.controls.enableDamping;
+    this.controls.enableDamping = false;
     this.controls.update();
+    this.controls.enableDamping = wasDamping;
   }
 }
 
