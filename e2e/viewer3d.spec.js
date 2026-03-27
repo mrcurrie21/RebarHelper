@@ -183,31 +183,35 @@ test.describe('3D Viewer', () => {
     expect(visibleAgain).toBe(true);
   });
 
-  test('HUD axis indicator has labeled axes that rotate with camera', async ({ page }) => {
+  test('World-space axis arrows with X/Y/Z labels at origin', async ({ page }) => {
     await page.goto('/');
-    await page.waitForTimeout(500);
+    await page.click('.elem-item');
+    await page.waitForTimeout(1000);
 
-    // Verify HUD scene and axis group exist with expected children
-    const hudInfo = await page.evaluate(() => {
+    // Verify axis group exists with expected children in the main scene
+    const axisInfo = await page.evaluate(() => {
       const v = window.rebarViewer3D;
-      if (!v || !v.hudScene || !v.hudAxisGroup) return null;
+      if (!v || !v.axisGroup) return null;
       const labels = [];
-      v.hudAxisGroup.traverse((child) => {
+      v.axisGroup.traverse((child) => {
         if (child.userData && child.userData.isAxisLabel) {
           labels.push(true);
         }
       });
       return {
-        childCount: v.hudAxisGroup.children.length,
+        childCount: v.axisGroup.children.length,
         labelCount: labels.length,
+        position: [v.axisGroup.position.x, v.axisGroup.position.y, v.axisGroup.position.z],
       };
     });
 
-    expect(hudInfo).not.toBeNull();
+    expect(axisInfo).not.toBeNull();
     // 3 axes x (shaft + cone + label) = 9 children
-    expect(hudInfo.childCount).toBe(9);
+    expect(axisInfo.childCount).toBe(9);
     // 3 axis labels (X, Y, Z)
-    expect(hudInfo.labelCount).toBe(3);
+    expect(axisInfo.labelCount).toBe(3);
+    // Anchored at origin
+    expect(axisInfo.position).toEqual([0, 0, 0]);
   });
 
   test('3D viewer renders without errors', async ({ page }) => {

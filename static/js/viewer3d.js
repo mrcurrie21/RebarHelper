@@ -16,7 +16,6 @@ class RebarViewer3D {
     // Renderer
     this.renderer = new THREE.WebGLRenderer({ antialias: true });
     this.renderer.setPixelRatio(window.devicePixelRatio);
-    this.renderer.autoClear = false;
     containerEl.appendChild(this.renderer.domElement);
 
     // Controls
@@ -47,8 +46,10 @@ class RebarViewer3D {
     const grid = new THREE.GridHelper(500, 50, 0x444466, 0x333355);
     this.scene.add(grid);
 
-    // HUD axis indicator (rendered in a corner viewport)
-    this._initAxisHUD();
+    // World-space axis arrows at origin
+    this.axisGroup = new THREE.Group();
+    this.scene.add(this.axisGroup);
+    this._buildAxisArrows(30);
 
     // Selection state
     this.selectedGroupId = null;
@@ -64,27 +65,28 @@ class RebarViewer3D {
     this._animate();
   }
 
-  _initAxisHUD() {
-    // Separate scene rendered in a small corner viewport
-    this.hudScene = new THREE.Scene();
-    const size = 2.2;
-    this.hudCamera = new THREE.OrthographicCamera(-size, size, size, -size, 0.1, 100);
-    this.hudCamera.position.set(0, 0, 5);
-    this.hudCamera.lookAt(0, 0, 0);
+  _buildAxisArrows(axisLength) {
+    // Clear previous arrows
+    while (this.axisGroup.children.length > 0) {
+      const c = this.axisGroup.children[0];
+      if (c.geometry) c.geometry.dispose();
+      if (c.material) {
+        if (c.material.map) c.material.map.dispose();
+        c.material.dispose();
+      }
+      this.axisGroup.remove(c);
+    }
 
-    const axisLength = 1.0;
-    const axisRadius = 0.04;
-    const coneHeight = 0.25;
-    const coneRadius = 0.1;
+    const axisRadius = axisLength * 0.02;
+    const coneHeight = axisLength * 0.08;
+    const coneRadius = axisLength * 0.04;
+    const labelScale = axisLength * 0.25;
 
     const axes = [
       { dir: [1, 0, 0], color: 0xff4444, label: 'X' },
       { dir: [0, 1, 0], color: 0x44cc44, label: 'Y' },
       { dir: [0, 0, 1], color: 0x4488ff, label: 'Z' },
     ];
-
-    // Root group that we rotate to match the main camera
-    this.hudAxisGroup = new THREE.Group();
 
     for (const axis of axes) {
       const d = new THREE.Vector3(...axis.dir);
@@ -93,18 +95,16 @@ class RebarViewer3D {
       // Shaft
       const shaftGeo = new THREE.CylinderGeometry(axisRadius, axisRadius, axisLength, 8);
       const shaft = new THREE.Mesh(shaftGeo, mat);
-      const mid = d.clone().multiplyScalar(axisLength / 2);
-      shaft.position.copy(mid);
-      const q = new THREE.Quaternion().setFromUnitVectors(new THREE.Vector3(0, 1, 0), d);
-      shaft.quaternion.copy(q);
-      this.hudAxisGroup.add(shaft);
+      shaft.position.copy(d.clone().multiplyScalar(axisLength / 2));
+      shaft.quaternion.setFromUnitVectors(new THREE.Vector3(0, 1, 0), d);
+      this.axisGroup.add(shaft);
 
       // Arrow cone
       const coneGeo = new THREE.ConeGeometry(coneRadius, coneHeight, 8);
       const cone = new THREE.Mesh(coneGeo, mat);
       cone.position.copy(d.clone().multiplyScalar(axisLength + coneHeight / 2));
-      cone.quaternion.copy(q);
-      this.hudAxisGroup.add(cone);
+      cone.quaternion.setFromUnitVectors(new THREE.Vector3(0, 1, 0), d);
+      this.axisGroup.add(cone);
 
       // Text label sprite
       const canvas = document.createElement('canvas');
@@ -120,13 +120,11 @@ class RebarViewer3D {
       const texture = new THREE.CanvasTexture(canvas);
       const spriteMat = new THREE.SpriteMaterial({ map: texture, depthTest: false });
       const sprite = new THREE.Sprite(spriteMat);
-      sprite.position.copy(d.clone().multiplyScalar(axisLength + coneHeight + 0.25));
-      sprite.scale.set(0.5, 0.5, 1);
+      sprite.position.copy(d.clone().multiplyScalar(axisLength + coneHeight + labelScale * 0.6));
+      sprite.scale.set(labelScale, labelScale, 1);
       sprite.userData.isAxisLabel = true;
-      this.hudAxisGroup.add(sprite);
+      this.axisGroup.add(sprite);
     }
-
-    this.hudScene.add(this.hudAxisGroup);
   }
 
   _resize() {
@@ -141,35 +139,7 @@ class RebarViewer3D {
   _animate() {
     requestAnimationFrame(() => this._animate());
     this.controls.update();
-
-    // Main scene (full viewport)
-    this.renderer.setViewport(0, 0, this.renderer.domElement.width, this.renderer.domElement.height);
-    this.renderer.setScissorTest(false);
-    this.renderer.clear();
     this.renderer.render(this.scene, this.camera);
-
-    // HUD axis indicator (bottom-left corner)
-    this._renderAxisHUD();
-  }
-
-  _renderAxisHUD() {
-    const pixelRatio = this.renderer.getPixelRatio();
-    const hudSize = Math.round(120 * pixelRatio);
-    const margin = Math.round(8 * pixelRatio);
-
-    // Sync axis group rotation with main camera orientation
-    this.hudAxisGroup.quaternion.copy(this.camera.quaternion).invert();
-
-    this.renderer.setViewport(margin, margin, hudSize, hudSize);
-    this.renderer.setScissor(margin, margin, hudSize, hudSize);
-    this.renderer.setScissorTest(true);
-    this.renderer.setClearColor(0x000000, 0);
-    this.renderer.clearDepth();
-    this.renderer.render(this.hudScene, this.hudCamera);
-
-    // Restore clear color
-    this.renderer.setClearColor(this.scene.background);
-    this.renderer.setScissorTest(false);
   }
 
   _onClick(event) {
@@ -418,6 +388,11 @@ class RebarViewer3D {
     this._lastBounds = bounds;
     const min = new THREE.Vector3(...bounds.min);
     const max = new THREE.Vector3(...bounds.max);
+
+    // Scale axis arrows to ~25% of the element's largest dimension
+    const bSize = new THREE.Vector3().subVectors(max, min);
+    const axisLen = Math.max(bSize.x, bSize.y, bSize.z) * 0.25;
+    if (axisLen > 0) this._buildAxisArrows(axisLen);
     const center = new THREE.Vector3().addVectors(min, max).multiplyScalar(0.5);
     const size = new THREE.Vector3().subVectors(max, min);
     const maxDim = Math.max(size.x, size.y, size.z);
