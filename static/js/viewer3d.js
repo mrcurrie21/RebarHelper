@@ -16,6 +16,7 @@ class RebarViewer3D {
     // Renderer
     this.renderer = new THREE.WebGLRenderer({ antialias: true });
     this.renderer.setPixelRatio(window.devicePixelRatio);
+    this.renderer.autoClear = false;
     containerEl.appendChild(this.renderer.domElement);
 
     // Controls
@@ -46,9 +47,8 @@ class RebarViewer3D {
     const grid = new THREE.GridHelper(500, 50, 0x444466, 0x333355);
     this.scene.add(grid);
 
-    // Axes
-    const axes = new THREE.AxesHelper(50);
-    this.scene.add(axes);
+    // HUD axis indicator (rendered in a corner viewport)
+    this._initAxisHUD();
 
     // Selection state
     this.selectedGroupId = null;
@@ -64,6 +64,71 @@ class RebarViewer3D {
     this._animate();
   }
 
+  _initAxisHUD() {
+    // Separate scene rendered in a small corner viewport
+    this.hudScene = new THREE.Scene();
+    const size = 2.2;
+    this.hudCamera = new THREE.OrthographicCamera(-size, size, size, -size, 0.1, 100);
+    this.hudCamera.position.set(0, 0, 5);
+    this.hudCamera.lookAt(0, 0, 0);
+
+    const axisLength = 1.0;
+    const axisRadius = 0.04;
+    const coneHeight = 0.25;
+    const coneRadius = 0.1;
+
+    const axes = [
+      { dir: [1, 0, 0], color: 0xff4444, label: 'X' },
+      { dir: [0, 1, 0], color: 0x44cc44, label: 'Y' },
+      { dir: [0, 0, 1], color: 0x4488ff, label: 'Z' },
+    ];
+
+    // Root group that we rotate to match the main camera
+    this.hudAxisGroup = new THREE.Group();
+
+    for (const axis of axes) {
+      const d = new THREE.Vector3(...axis.dir);
+      const mat = new THREE.MeshBasicMaterial({ color: axis.color });
+
+      // Shaft
+      const shaftGeo = new THREE.CylinderGeometry(axisRadius, axisRadius, axisLength, 8);
+      const shaft = new THREE.Mesh(shaftGeo, mat);
+      const mid = d.clone().multiplyScalar(axisLength / 2);
+      shaft.position.copy(mid);
+      const q = new THREE.Quaternion().setFromUnitVectors(new THREE.Vector3(0, 1, 0), d);
+      shaft.quaternion.copy(q);
+      this.hudAxisGroup.add(shaft);
+
+      // Arrow cone
+      const coneGeo = new THREE.ConeGeometry(coneRadius, coneHeight, 8);
+      const cone = new THREE.Mesh(coneGeo, mat);
+      cone.position.copy(d.clone().multiplyScalar(axisLength + coneHeight / 2));
+      cone.quaternion.copy(q);
+      this.hudAxisGroup.add(cone);
+
+      // Text label sprite
+      const canvas = document.createElement('canvas');
+      canvas.width = 64;
+      canvas.height = 64;
+      const ctx = canvas.getContext('2d');
+      ctx.font = 'bold 48px sans-serif';
+      ctx.textAlign = 'center';
+      ctx.textBaseline = 'middle';
+      ctx.fillStyle = '#' + axis.color.toString(16).padStart(6, '0');
+      ctx.fillText(axis.label, 32, 32);
+
+      const texture = new THREE.CanvasTexture(canvas);
+      const spriteMat = new THREE.SpriteMaterial({ map: texture, depthTest: false });
+      const sprite = new THREE.Sprite(spriteMat);
+      sprite.position.copy(d.clone().multiplyScalar(axisLength + coneHeight + 0.25));
+      sprite.scale.set(0.5, 0.5, 1);
+      sprite.userData.isAxisLabel = true;
+      this.hudAxisGroup.add(sprite);
+    }
+
+    this.hudScene.add(this.hudAxisGroup);
+  }
+
   _resize() {
     const w = this.container.clientWidth;
     const h = this.container.clientHeight;
@@ -76,7 +141,35 @@ class RebarViewer3D {
   _animate() {
     requestAnimationFrame(() => this._animate());
     this.controls.update();
+
+    // Main scene (full viewport)
+    this.renderer.setViewport(0, 0, this.renderer.domElement.width, this.renderer.domElement.height);
+    this.renderer.setScissorTest(false);
+    this.renderer.clear();
     this.renderer.render(this.scene, this.camera);
+
+    // HUD axis indicator (bottom-left corner)
+    this._renderAxisHUD();
+  }
+
+  _renderAxisHUD() {
+    const pixelRatio = this.renderer.getPixelRatio();
+    const hudSize = Math.round(120 * pixelRatio);
+    const margin = Math.round(8 * pixelRatio);
+
+    // Sync axis group rotation with main camera orientation
+    this.hudAxisGroup.quaternion.copy(this.camera.quaternion).invert();
+
+    this.renderer.setViewport(margin, margin, hudSize, hudSize);
+    this.renderer.setScissor(margin, margin, hudSize, hudSize);
+    this.renderer.setScissorTest(true);
+    this.renderer.setClearColor(0x000000, 0);
+    this.renderer.clearDepth();
+    this.renderer.render(this.hudScene, this.hudCamera);
+
+    // Restore clear color
+    this.renderer.setClearColor(this.scene.background);
+    this.renderer.setScissorTest(false);
   }
 
   _onClick(event) {

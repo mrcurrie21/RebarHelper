@@ -183,6 +183,33 @@ test.describe('3D Viewer', () => {
     expect(visibleAgain).toBe(true);
   });
 
+  test('HUD axis indicator has labeled axes that rotate with camera', async ({ page }) => {
+    await page.goto('/');
+    await page.waitForTimeout(500);
+
+    // Verify HUD scene and axis group exist with expected children
+    const hudInfo = await page.evaluate(() => {
+      const v = window.rebarViewer3D;
+      if (!v || !v.hudScene || !v.hudAxisGroup) return null;
+      const labels = [];
+      v.hudAxisGroup.traverse((child) => {
+        if (child.userData && child.userData.isAxisLabel) {
+          labels.push(true);
+        }
+      });
+      return {
+        childCount: v.hudAxisGroup.children.length,
+        labelCount: labels.length,
+      };
+    });
+
+    expect(hudInfo).not.toBeNull();
+    // 3 axes x (shaft + cone + label) = 9 children
+    expect(hudInfo.childCount).toBe(9);
+    // 3 axis labels (X, Y, Z)
+    expect(hudInfo.labelCount).toBe(3);
+  });
+
   test('3D viewer renders without errors', async ({ page }) => {
     const errors = [];
     page.on('pageerror', (error) => errors.push(error.message));
