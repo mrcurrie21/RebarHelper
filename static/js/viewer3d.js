@@ -30,8 +30,10 @@ class RebarViewer3D {
     // Groups
     this.surfaceGroup = new THREE.Group();
     this.rebarGroup = new THREE.Group();
+    this.labelGroup = new THREE.Group();
     this.scene.add(this.surfaceGroup);
     this.scene.add(this.rebarGroup);
+    this.scene.add(this.labelGroup);
 
     // Lights
     const ambient = new THREE.AmbientLight(0xffffff, 0.6);
@@ -123,6 +125,14 @@ class RebarViewer3D {
       if (c.material) c.material.dispose();
       this.rebarGroup.remove(c);
     }
+    while (this.labelGroup.children.length > 0) {
+      const c = this.labelGroup.children[0];
+      if (c.material) {
+        if (c.material.map) c.material.map.dispose();
+        c.material.dispose();
+      }
+      this.labelGroup.remove(c);
+    }
   }
 
   update(data) {
@@ -161,6 +171,9 @@ class RebarViewer3D {
     }));
     mesh.userData.surfaceId = s.id;
     this.surfaceGroup.add(mesh);
+
+    // Surface label sprite
+    this._renderSurfaceLabel(s.name, verts);
 
     // Wireframe edges
     const edgeGeo = new THREE.BufferGeometry();
@@ -265,6 +278,41 @@ class RebarViewer3D {
     hookMesh.quaternion.copy(hQuat);
 
     this.rebarGroup.add(hookMesh);
+  }
+
+  _renderSurfaceLabel(name, verts) {
+    // Compute centroid
+    const cx = verts.reduce((s, v) => s + v[0], 0) / verts.length;
+    const cy = verts.reduce((s, v) => s + v[1], 0) / verts.length;
+    const cz = verts.reduce((s, v) => s + v[2], 0) / verts.length;
+
+    // Create canvas texture with label text
+    const canvas = document.createElement('canvas');
+    canvas.width = 256;
+    canvas.height = 64;
+    const ctx = canvas.getContext('2d');
+    ctx.font = 'bold 36px sans-serif';
+    ctx.textAlign = 'center';
+    ctx.textBaseline = 'middle';
+    ctx.fillStyle = '#ffffff';
+    ctx.fillText(name.charAt(0).toUpperCase() + name.slice(1), 128, 32);
+
+    const texture = new THREE.CanvasTexture(canvas);
+    const material = new THREE.SpriteMaterial({
+      map: texture,
+      transparent: true,
+      opacity: 0.3,
+      depthTest: false,
+    });
+    const sprite = new THREE.Sprite(material);
+    sprite.position.set(cx, cy, cz);
+    sprite.scale.set(24, 6, 1);
+    sprite.userData.isLabel = true;
+    this.labelGroup.add(sprite);
+  }
+
+  toggleLabels() {
+    this.labelGroup.visible = !this.labelGroup.visible;
   }
 
   zoomExtents() {

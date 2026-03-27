@@ -2,9 +2,18 @@
 
 Issue: https://github.com/mrcurrie21/RebarHelper/issues/2
 
-## Task Breakdown
+## Plan
 
-1. In `viewer3d.js`, add a `labelGroup` (THREE.Group) to the scene
-2. In `_renderSurface()`, create a sprite/CSS2D label at the surface centroid with ~30% opacity
-3. Add a toggle button to the viewer toolbar that shows/hides `labelGroup`
-4. Ensure `updateScene()` clears and rebuilds labels along with surfaces
+1. **Add `labelGroup` to viewer3d.js** — new `THREE.Group` added to the scene alongside `surfaceGroup` and `rebarGroup`
+2. **Create sprite labels in `_renderSurface()`** — for each surface, compute centroid from vertices, create a `CanvasTexture` with the surface name, wrap in `THREE.Sprite` at ~30% opacity
+3. **Add toggle button** — new toolbar button in `index.html` next to the Zoom Extents button, wired to show/hide `labelGroup`
+4. **Update `clearScene()`** — dispose and clear label sprites along with surfaces
+5. **E2E tests** — verify labels exist in scene, toggle hides/shows them
+
+## Approach
+
+- Use `THREE.Sprite` + `CanvasTexture` (no extra imports needed, auto-billboards toward camera)
+- Compute centroid as average of all surface vertices
+- Canvas: white text on transparent background, rendered to power-of-2 texture
+- Sprite material: `opacity: 0.3`, `transparent: true`, `depthTest: false` so labels are always visible
+- Toggle button uses same `.viewer-toolbar-btn` styling, positioned below zoom extents
