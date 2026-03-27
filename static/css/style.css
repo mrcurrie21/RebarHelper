@@ -96,6 +96,8 @@ nav h1 { font-size: 1rem; color: var(--primary); }
   border-left: 1px solid var(--border);
   background: #1a1a2e;
   position: relative;
+  min-height: 0;
+  overflow: hidden;
 }
 #three-container { width: 100%; height: 100%; }
 .viewer-toolbar-btn {
