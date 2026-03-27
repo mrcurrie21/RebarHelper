@@ -183,6 +183,37 @@ test.describe('3D Viewer', () => {
     expect(visibleAgain).toBe(true);
   });
 
+  test('World-space axis arrows with X/Y/Z labels at origin', async ({ page }) => {
+    await page.goto('/');
+    await page.click('.elem-item');
+    await page.waitForFunction(() => window.rebarViewer3D?.axisGroup?.children?.length > 0);
+
+    // Verify axis group exists with expected children in the main scene
+    const axisInfo = await page.evaluate(() => {
+      const v = window.rebarViewer3D;
+      if (!v || !v.axisGroup) return null;
+      const labels = [];
+      v.axisGroup.traverse((child) => {
+        if (child.userData && child.userData.isAxisLabel) {
+          labels.push(true);
+        }
+      });
+      return {
+        childCount: v.axisGroup.children.length,
+        labelCount: labels.length,
+        position: [v.axisGroup.position.x, v.axisGroup.position.y, v.axisGroup.position.z],
+      };
+    });
+
+    expect(axisInfo).not.toBeNull();
+    // 3 axes x (shaft + cone + label) = 9 children
+    expect(axisInfo.childCount).toBe(9);
+    // 3 axis labels (X, Y, Z)
+    expect(axisInfo.labelCount).toBe(3);
+    // Anchored at origin
+    expect(axisInfo.position).toEqual([0, 0, 0]);
+  });
+
   test('3D viewer renders without errors', async ({ page }) => {
     const errors = [];
     page.on('pageerror', (error) => errors.push(error.message));
