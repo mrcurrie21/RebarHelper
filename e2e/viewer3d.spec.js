@@ -83,6 +83,61 @@ test.describe('3D Viewer', () => {
     }
   });
 
+  test('Zoom Extents button is visible and clickable', async ({ page }) => {
+    await page.goto('/');
+    const btn = page.locator('#btn-zoom-extents');
+    await expect(btn).toBeVisible();
+    await expect(btn).toHaveAttribute('title', 'Zoom Extents');
+  });
+
+  test('Zoom Extents resets camera after panning away', async ({ page }) => {
+    const errors = [];
+    page.on('pageerror', (error) => errors.push(error.message));
+
+    await page.goto('/');
+    await page.click('.elem-item');
+    await page.waitForTimeout(1000);
+
+    // Record camera position after initial fit
+    const posAfterFit = await page.evaluate(() => {
+      const v = window.rebarViewer3D;
+      if (!v) return null;
+      const p = v.camera.position;
+      return { x: p.x, y: p.y, z: p.z };
+    });
+
+    // Move camera to a totally different position
+    await page.evaluate(() => {
+      const v = window.rebarViewer3D;
+      v.camera.position.set(9999, 9999, 9999);
+      v.controls.update();
+    });
+    await page.waitForTimeout(200);
+
+    // Click zoom extents
+    await page.click('#btn-zoom-extents');
+    await page.waitForTimeout(200);
+
+    // Camera should be back near the original fit position
+    const posAfterZoom = await page.evaluate(() => {
+      const v = window.rebarViewer3D;
+      if (!v) return null;
+      const p = v.camera.position;
+      return { x: p.x, y: p.y, z: p.z };
+    });
+
+    if (posAfterFit && posAfterZoom) {
+      expect(posAfterZoom.x).toBeCloseTo(posAfterFit.x, 0);
+      expect(posAfterZoom.y).toBeCloseTo(posAfterFit.y, 0);
+      expect(posAfterZoom.z).toBeCloseTo(posAfterFit.z, 0);
+    }
+
+    const jsErrors = errors.filter(
+      (e) => !e.includes('WebGL') && !e.includes('GPU')
+    );
+    expect(jsErrors).toHaveLength(0);
+  });
+
   test('3D viewer renders without errors', async ({ page }) => {
     const errors = [];
     page.on('pageerror', (error) => errors.push(error.message));

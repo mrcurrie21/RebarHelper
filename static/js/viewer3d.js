@@ -52,6 +52,9 @@ class RebarViewer3D {
     this.selectedGroupId = null;
     this.onGroupSelected = null;
 
+    // Store last bounds for zoom extents
+    this._lastBounds = null;
+
     // Events
     this.renderer.domElement.addEventListener('click', (e) => this._onClick(e));
     window.addEventListener('resize', () => this._resize());
@@ -264,14 +267,25 @@ class RebarViewer3D {
     this.rebarGroup.add(hookMesh);
   }
 
+  zoomExtents() {
+    this._resize();
+    this._fitCamera(this._lastBounds);
+  }
+
   _fitCamera(bounds) {
     if (!bounds) return;
+    this._lastBounds = bounds;
     const min = new THREE.Vector3(...bounds.min);
     const max = new THREE.Vector3(...bounds.max);
     const center = new THREE.Vector3().addVectors(min, max).multiplyScalar(0.5);
     const size = new THREE.Vector3().subVectors(max, min);
     const maxDim = Math.max(size.x, size.y, size.z);
-    const dist = maxDim * 1.8;
+
+    // Account for camera FOV and aspect ratio so model fits at any window size
+    const fov = this.camera.fov * (Math.PI / 180);
+    const aspect = this.camera.aspect || 1;
+    const effectiveFov = aspect < 1 ? 2 * Math.atan(aspect * Math.tan(fov / 2)) : fov;
+    const dist = (maxDim / 2) / Math.tan(effectiveFov / 2) * 1.3;
 
     this.camera.position.set(
       center.x + dist * 0.6,
@@ -279,7 +293,12 @@ class RebarViewer3D {
       center.z + dist * 0.8
     );
     this.controls.target.copy(center);
+
+    // Snap immediately — damping would otherwise interpolate over many frames
+    const wasDamping = this.controls.enableDamping;
+    this.controls.enableDamping = false;
     this.controls.update();
+    this.controls.enableDamping = wasDamping;
   }
 }
 
