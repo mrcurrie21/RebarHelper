@@ -76,6 +76,11 @@ nav h1 { font-size: 1rem; color: var(--primary); }
 .elem-item .elem-meta { font-size: 11px; color: var(--text-muted); }
 
 /* Workflow steps */
+#workflow-steps {
+  border-top: 1px solid var(--border);
+  margin-top: 4px;
+  padding-top: 8px;
+}
 .step-btn {
   display: block; width: 100%; text-align: left;
   padding: 8px 10px; border: none; background: none;
