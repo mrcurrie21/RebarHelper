@@ -31,9 +31,9 @@ def test_straight_not_rotated_runs_along_long_axis():
 
     # Long dim is 120, bar_length = 120 - 2*1.5 = 117
     assert bar_length == 117.0
-    # Distribution along short dim (24): available = 24 - 3 = 21, qty = floor(21/6) + 1 = 4
-    assert qty == 4
-    assert len(positions) == 4
+    # Distribution along short dim (24): available = 24 - 3 = 21, qty = ceil(21/6) + 1 = 5
+    assert qty == 5
+    assert len(positions) == 5
 
 
 def test_straight_rotated_runs_along_short_axis():
@@ -53,8 +53,8 @@ def test_straight_rotated_runs_along_short_axis():
 
     # Short dim is 24, bar_length = 24 - 3 = 21
     assert bar_length == 21.0
-    # Distribution along long dim (120): available = 120 - 3 = 117, qty = floor(117/6) + 1 = 20
-    assert qty == 20
+    # Distribution along long dim (120): available = 120 - 3 = 117, qty = ceil(117/6) + 1 = 21
+    assert qty == 21
 
 
 def test_straight_with_90_start_hook():

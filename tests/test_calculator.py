@@ -23,9 +23,9 @@ def test_recalculate_sets_quantity_and_length():
     )
     recalculate_rebar_group(elem, group)
 
-    assert group.quantity == 4
+    assert group.quantity == 5
     assert group.bar_length == 117.0
-    assert len(group.positions) == 4
+    assert len(group.positions) == 5
 
 
 def test_recalculate_sets_unit_weight():
@@ -47,7 +47,7 @@ def test_recalculate_computes_total_weight():
     )
     recalculate_rebar_group(elem, group)
 
-    expected = round(get_unit_weight("#5") * (117.0 / 12.0) * 4, 2)
+    expected = round(get_unit_weight("#5") * (117.0 / 12.0) * 5, 2)
     assert group.total_weight == expected
 
 
@@ -66,7 +66,7 @@ def test_recalculate_with_hooks_affects_weight():
 
     # Bar length includes hook extension: 117 + 7.5 = 124.5
     assert group.bar_length == 124.5
-    expected = round(get_unit_weight("#5") * (124.5 / 12.0) * 4, 2)
+    expected = round(get_unit_weight("#5") * (124.5 / 12.0) * 5, 2)
     assert group.total_weight == expected
 
 
@@ -81,9 +81,9 @@ def test_recalculate_all_groups_updates_every_group():
 
     recalculate_all_groups(elem)
 
-    assert g1.quantity == 4
+    assert g1.quantity == 5
     assert g1.bar_length == 117.0
-    assert g2.quantity == 20
+    assert g2.quantity == 21
     assert g2.bar_length == 21.0
 
 
@@ -96,7 +96,7 @@ def test_recalculate_different_bar_sizes():
     recalculate_rebar_group(elem, group)
 
     assert group.unit_weight == get_unit_weight("#8")
-    assert group.total_weight == round(get_unit_weight("#8") * (117.0 / 12.0) * 4, 2)
+    assert group.total_weight == round(get_unit_weight("#8") * (117.0 / 12.0) * 5, 2)
 
 
 def test_recalculate_stirrup():
