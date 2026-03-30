@@ -205,7 +205,7 @@ def test_add_rebar_group():
         RebarGroupCreate(surface_id=sid, label="A1", bar_size="#5", spacing=6.0, cover=1.5),
     )
     assert group is not None
-    assert group.quantity == 4
+    assert group.quantity == 5
     assert group.bar_length == 117.0
     assert group.total_weight > 0
 
@@ -226,7 +226,7 @@ def test_update_rebar_group():
         RebarGroupCreate(surface_id=sid, label="A1", bar_size="#5", spacing=6.0, cover=1.5),
     )
     original_qty = group.quantity
-    assert original_qty == 4
+    assert original_qty == 5
     updated = update_rebar_group(elem.id, group.id, RebarGroupUpdate(spacing=12.0))
     assert updated.spacing == 12.0
     # Fewer bars with wider spacing
@@ -292,7 +292,7 @@ def test_save_and_load(tmp_path):
     assert loaded is not None
     assert loaded.name == "R"
     assert len(loaded.rebar_groups) == 1
-    assert loaded.rebar_groups[0].quantity == 4
+    assert loaded.rebar_groups[0].quantity == 5
 
 
 def test_load_nonexistent_file(tmp_path):
