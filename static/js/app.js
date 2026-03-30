@@ -361,7 +361,7 @@ async function renderRebarStep() {
           </select>
         </div>
         <div class="form-group">
-          <label>Spacing (in o.c.)</label>
+          <label>Max Spacing (inches)</label>
           <input type="number" id="rg-spacing" value="12" step="0.5" min="0.5">
         </div>
         <div class="form-group">
