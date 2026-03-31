@@ -365,7 +365,7 @@ async function renderRebarStep() {
           <input type="number" id="rg-spacing" value="12" step="0.5" min="0.5">
         </div>
         <div class="form-group">
-          <label>Cover (in)</label>
+          <label>Clear Cover (in)</label>
           <input type="number" id="rg-cover" value="1.5" step="0.125" min="0">
         </div>
         <div class="form-group" style="align-self:end">
