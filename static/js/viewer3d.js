@@ -175,9 +175,10 @@ class RebarViewer3D {
       const groupId = hit.userData.groupId;
       this.highlightGroup(groupId);
 
-      if (this.onGroupSelected) this.onGroupSelected(groupId);
+      if (this.onGroupSelected) this.onGroupSelected(this.selectedGroupId);
     } else {
       this.clearHighlight();
+      if (this.onGroupSelected) this.onGroupSelected(null);
     }
   }
 
