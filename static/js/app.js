@@ -59,16 +59,31 @@ async function init() {
   });
 
   viewer3d.onGroupSelected = (groupId) => {
-    // Highlight table row
-    document.querySelectorAll('.rebar-table tr').forEach(r => r.classList.remove('highlight'));
+    // Highlight table row when bar clicked in 3D viewer
+    highlightTableRow(groupId);
+  };
+
+  loadElementList();
+}
+
+// --- Rebar Row Highlight ---
+
+function highlightTableRow(groupId) {
+  document.querySelectorAll('.rebar-table tr').forEach(r => r.classList.remove('highlight'));
+  if (groupId) {
     const row = document.querySelector(`tr[data-group-id="${groupId}"]`);
     if (row) {
       row.classList.add('highlight');
       row.scrollIntoView({ block: 'nearest' });
     }
-  };
+  }
+}
 
-  loadElementList();
+function onRebarRowClick(groupId) {
+  if (!viewer3d) return;
+  viewer3d.highlightGroup(groupId);
+  // Update table row highlight to match viewer state (toggle may have cleared it)
+  highlightTableRow(viewer3d.selectedGroupId);
 }
 
 // --- Element List ---
@@ -306,7 +321,7 @@ async function renderRebarStep() {
       ? `${hookLabels[g.start_hook] || '-'} / ${hookLabels[g.end_hook] || '-'}`
       : '-';
     return `
-    <tr data-group-id="${g.id}">
+    <tr data-group-id="${g.id}" onclick="onRebarRowClick('${g.id}')" style="cursor:pointer">
       <td>${esc(g.label)}</td>
       <td>${surfName}</td>
       <td>${g.bar_size}</td>
@@ -600,6 +615,7 @@ window.submitRebarGroup = submitRebarGroup;
 window.deleteRebarGroup = deleteRebarGroup;
 window.saveData = saveData;
 window.updateCrossSection = updateCrossSection;
+window.onRebarRowClick = onRebarRowClick;
 
 // Start
 init();
