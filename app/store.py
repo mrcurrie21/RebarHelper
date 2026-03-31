@@ -204,5 +204,7 @@ def load_from_file(path: Path = SAVE_FILE) -> int:
     raw = json.loads(path.read_text())
     _store.clear()
     for eid, elem_data in raw.items():
-        _store[eid] = ConcreteElement.model_validate(elem_data)
+        elem = ConcreteElement.model_validate(elem_data)
+        recalculate_all_groups(elem)
+        _store[eid] = elem
     return len(_store)
