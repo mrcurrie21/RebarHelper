@@ -216,7 +216,10 @@ def compute_rebar_positions(
     visual_length = _compute_visual_length(group.shape, run_dim, u_dim, v_dim, cover)
 
     # Distribution: how many bars fit along the perpendicular axis
-    available_span = dist_dim - 2 * cover
+    # available_span is the center-to-center distance between the first and
+    # last bar: surface width minus cover on each side minus the bar diameter
+    # (cover is measured to the bar surface, so bar center is at cover + d/2).
+    available_span = dist_dim - 2 * cover - diameter
     if available_span <= 0 or spacing <= 0:
         return [], 0, 0.0
 
@@ -231,7 +234,7 @@ def compute_rebar_positions(
 
     positions = []
     for i in range(quantity):
-        dist_offset = cover + i * actual_spacing
+        dist_offset = cover + diameter / 2 + i * actual_spacing
         # Start point: offset_origin + dist_offset along dist axis + cover along run axis
         start = _add(offset_origin, _add(_scale(dist_unit, dist_offset), _scale(run_unit, cover)))
         end = _add(start, _scale(run_unit, visual_length))
