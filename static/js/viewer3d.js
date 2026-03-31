@@ -135,6 +135,33 @@ class RebarViewer3D {
     this.renderer.render(this.scene, this.camera);
   }
 
+  highlightGroup(groupId) {
+    // Toggle: if already selected, clear instead
+    if (this.selectedGroupId === groupId) {
+      this.clearHighlight();
+      return;
+    }
+
+    this.clearHighlight();
+    this.selectedGroupId = groupId;
+
+    this.rebarGroup.children.forEach(child => {
+      if (child.userData.groupId === groupId) {
+        child.material.emissive.setHex(0x444444);
+      }
+    });
+  }
+
+  clearHighlight() {
+    this.rebarGroup.children.forEach(child => {
+      if (child.userData.originalColor !== undefined) {
+        child.material.color.setHex(child.userData.originalColor);
+        child.material.emissive.setHex(0x000000);
+      }
+    });
+    this.selectedGroupId = null;
+  }
+
   _onClick(event) {
     const rect = this.renderer.domElement.getBoundingClientRect();
     this.mouse.x = ((event.clientX - rect.left) / rect.width) * 2 - 1;
@@ -143,28 +170,15 @@ class RebarViewer3D {
     this.raycaster.setFromCamera(this.mouse, this.camera);
     const intersects = this.raycaster.intersectObjects(this.rebarGroup.children, true);
 
-    // Reset previous selection
-    this.rebarGroup.children.forEach(child => {
-      if (child.userData.originalColor !== undefined) {
-        child.material.color.setHex(child.userData.originalColor);
-        child.material.emissive.setHex(0x000000);
-      }
-    });
-
     if (intersects.length > 0) {
       const hit = intersects[0].object;
       const groupId = hit.userData.groupId;
-      this.selectedGroupId = groupId;
+      this.highlightGroup(groupId);
 
-      this.rebarGroup.children.forEach(child => {
-        if (child.userData.groupId === groupId) {
-          child.material.emissive.setHex(0x444444);
-        }
-      });
-
-      if (this.onGroupSelected) this.onGroupSelected(groupId);
+      if (this.onGroupSelected) this.onGroupSelected(this.selectedGroupId);
     } else {
-      this.selectedGroupId = null;
+      this.clearHighlight();
+      if (this.onGroupSelected) this.onGroupSelected(null);
     }
   }
 
