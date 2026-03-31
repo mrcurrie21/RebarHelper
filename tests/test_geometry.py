@@ -31,9 +31,10 @@ def test_straight_not_rotated_runs_along_long_axis():
 
     # Long dim is 120, bar_length = 120 - 2*1.5 = 117
     assert bar_length == 117.0
-    # Distribution along short dim (24): available = 24 - 3 = 21, qty = floor(21/6) + 1 = 4
-    assert qty == 4
-    assert len(positions) == 4
+    # Distribution along short dim (24): c-c span = 24 - 3 - 0.625 = 20.375
+    # qty = ceil(20.375/6) + 1 = 5
+    assert qty == 5
+    assert len(positions) == 5
 
 
 def test_straight_rotated_runs_along_short_axis():
@@ -53,8 +54,9 @@ def test_straight_rotated_runs_along_short_axis():
 
     # Short dim is 24, bar_length = 24 - 3 = 21
     assert bar_length == 21.0
-    # Distribution along long dim (120): available = 120 - 3 = 117, qty = floor(117/6) + 1 = 20
-    assert qty == 20
+    # Distribution along long dim (120): c-c span = 120 - 3 - 0.625 = 116.375
+    # qty = ceil(116.375/6) + 1 = 21
+    assert qty == 21
 
 
 def test_straight_with_90_start_hook():
@@ -177,6 +179,36 @@ def test_stirrup_positions_stay_within_element():
     dx, dy, dz = end[0] - start[0], end[1] - start[1], end[2] - start[2]
     visual_span = (dx**2 + dy**2 + dz**2) ** 0.5
     assert abs(visual_span - 117.0) < 0.01
+
+
+def test_available_span_subtracts_bar_diameter():
+    """Center-to-center span = dist_dim - 2*cover - diameter."""
+    elem = _make_rect_element(24, 36, 120)
+    sid = _bottom_surface_id(elem)
+    # #5 bar, diameter = 0.625
+    group = RebarGroup(
+        surface_id=sid,
+        label="D1",
+        bar_size="#5",
+        shape=Shape.STRAIGHT,
+        spacing=6.0,
+        cover=1.5,
+        rotated=False,
+    )
+    positions, qty, _ = compute_rebar_positions(elem, group)
+
+    # dist_dim = 24 (short axis), c-c span = 24 - 3 - 0.625 = 20.375
+    # First bar center should be at cover + dia/2 = 1.8125 along X
+    # Last bar center should be at 24 - 1.8125 = 22.1875 along X (symmetric)
+    first_x = positions[0]["start"][0]
+    last_x = positions[-1]["start"][0]
+    assert abs(first_x - 1.8125) < 0.001
+    assert abs(last_x - 22.1875) < 0.001
+
+    # Actual spacing = 20.375 / 4 = 5.09375
+    if qty > 1:
+        gap = positions[1]["start"][0] - positions[0]["start"][0]
+        assert abs(gap - 5.09375) < 0.001
 
 
 def test_hook_extension_none():

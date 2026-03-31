@@ -242,7 +242,7 @@ def test_create_rebar_group(client):
     )
     assert resp.status_code == 201
     data = resp.json()
-    assert data["quantity"] == 4
+    assert data["quantity"] == 5
     assert data["bar_length"] == 117.0
     assert data["total_weight"] > 0
 
@@ -268,7 +268,7 @@ def test_update_rebar_group(client):
     )
     assert resp.status_code == 200
     assert resp.json()["spacing"] == 12.0
-    assert resp.json()["quantity"] == 2
+    assert resp.json()["quantity"] == 3
 
 
 def test_update_rebar_group_not_found(client):
@@ -334,7 +334,7 @@ def test_get_cross_section(client):
     assert resp.status_code == 200
     data = resp.json()
     assert "outline" in data
-    assert len(data["bars"]) == 4
+    assert len(data["bars"]) == 5
 
 
 def test_get_cross_section_not_found(client):
