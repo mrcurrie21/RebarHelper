@@ -404,7 +404,7 @@ async function renderRebarStep() {
         <thead>
           <tr>
             <th>Label</th><th>Surface</th><th>Size</th><th>Shape</th>
-            <th>Spacing</th><th>Cover</th><th>Rot.</th><th>Hooks</th>
+            <th>Max Spacing</th><th>Clear Cover</th><th>Rot.</th><th>Hooks</th>
             <th>Qty</th><th>Length</th><th>Wt/ft</th><th>Total Wt</th><th>Actions</th>
           </tr>
         </thead>
